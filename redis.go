@@ -1,27 +1,25 @@
 package delayq
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 )
 
-var RedisCli *redis.Client
+func InitRedis(config RedisConfiguration) (*redis.Client, error) {
 
-func InitRedis() {
-	config := RedisConfiguration{
-		Host: "192.168.89.160",
-		Port: "6379",
-	}
 	addr := fmt.Sprintf("%s:%s", config.Host, config.Port)
-	redisClient := redis.NewClient(&redis.Options{
+	redisCli := redis.NewClient(&redis.Options{
 		Addr:     addr,
 		Password: "",
 		DB:       0,
 	})
-	_, err := redisClient.Ping().Result()
+
+	_, err := redisCli.Ping(context.Background()).Result()
 	if err != nil {
 		panic(err)
 	}
-	RedisCli = redisClient
+
+	return redisCli, nil
 }
