@@ -2,8 +2,11 @@ package delayq
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
+
+	uuid "github.com/satori/go.uuid"
 )
 
 type Space struct {
@@ -21,9 +24,9 @@ func TestNewClient(t *testing.T) {
 	}
 	client := NewClient(config)
 	space := Space{
-		ID:     "space1",
-		UserID: "user1",
-		Phone:  "phone1",
+		ID:     "space2",
+		UserID: "user2",
+		Phone:  "phone2",
 	}
 
 	data, err := json.Marshal(space)
@@ -32,24 +35,8 @@ func TestNewClient(t *testing.T) {
 	}
 
 	topic := "space_expired"
-	client.Enqueue(topic, "job_id1", data, ProcessAt(time.Now().AddDate(1, 0, 0)))
-
-	space.ID = "space2"
-	space.UserID = "user2"
-	space.Phone = "phone2"
-	data, err = json.Marshal(space)
-	if err != nil {
-		panic(err)
+	for i := 0; i < 100; i++ {
+		client.Enqueue(topic, fmt.Sprintf("job_%s", uuid.NewV4().String()), data, ProcessAt(time.Now().Add(time.Second)))
 	}
-	client.Enqueue(topic, "job_id2", data, ProcessIn(time.Hour*2))
-
-	space.ID = "space3"
-	space.UserID = "user3"
-	space.Phone = "phone3"
-	data, err = json.Marshal(space)
-	if err != nil {
-		panic(err)
-	}
-	client.Enqueue(topic, "job_id3", data)
 
 }

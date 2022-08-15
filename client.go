@@ -40,10 +40,10 @@ func (c *client) Enqueue(topic string, jobID string, payload []byte, opts ...Opt
 		case timeoutOption:
 			job.TTR = time.Duration(opt).Milliseconds()
 		case processAtOption:
-			delay := time.Time(opt).UnixNano()
+			delay := time.Time(opt).Unix()
 			job.Delay = delay
 		case processInOption:
-			delay := time.Now().Add(time.Duration(opt)).UnixNano()
+			delay := time.Now().Add(time.Duration(opt)).Unix()
 			job.Delay = delay
 		default:
 

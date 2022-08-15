@@ -2,6 +2,24 @@ package delayq
 
 import "github.com/go-redis/redis/v8"
 
+/*
+获取某个延迟队列中大于当前时间戳的值
+假如就绪队列
+删除延迟队列中的数据
+
+*/
+var migrateExpiredJobScript = redis.NewScript(`
+	local delayQueueKey = KEYS[1]
+	local readyQueueKey = KEYS[2]
+	local t = ARGV[1]
+	local jobIDs = redis.call("zrangebyscore",delayQueueKey,0,t)
+	for key,value in ipairs(jobIDs) do
+		redis.call('lpush',readyQueueKey,value)
+		redis.call('zrem',delayQueueKey,value)
+	end
+	return jobIDs
+`)
+
 var pushToDelayQueueScript = redis.NewScript(`
 	local delayQueueKey = KEYS[1]
 	local jobPoolKey = KEYS[2]

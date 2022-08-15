@@ -27,6 +27,18 @@ type Worker struct {
 	WorkerPool  semaphore.Weighted
 }
 
+func (s *server) migrateExpiredJob(topic string) {
+	ticker := time.NewTicker(time.Duration(time.Second * 1))
+	for {
+
+		select {
+		case <-ticker.C:
+			s.storage.migrateExpiredJob(topic)
+		}
+
+	}
+}
+
 func NewServer(config RedisConfiguration, workers []*Worker) *server {
 
 	storage, err := newStorage(config)
@@ -51,6 +63,7 @@ type JobHandler interface {
 func (s *server) Run(ctx context.Context) error {
 
 	for _, worker := range s.workers {
+		go s.migrateExpiredJob(worker.TopicName)
 		go s.process(ctx, worker)
 	}
 
@@ -73,6 +86,7 @@ func (s *server) watchSystemSignal(ctx context.Context) {
 }
 
 func (s *server) process(ctx context.Context, worker *Worker) error {
+
 	for {
 		if atomic.LoadUint32(&s.close) == serverClosed {
 			break

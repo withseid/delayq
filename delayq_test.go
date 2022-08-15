@@ -12,6 +12,45 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
+func TestMigrate(t *testing.T) {
+	config := RedisConfiguration{
+		Host: "192.168.89.160",
+		Port: "6379",
+	}
+	cli, err := initRedis(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readyQueueKey := fmt.Sprintf("%s_space_expired", RedisReadyQueue)
+	ti := time.Now().Unix()
+
+	jobIDs, err := migrateExpiredJobScript.Run(context.TODO(), cli,
+		[]string{"delayQ_delay_queue_space_expired", readyQueueKey},
+		[]interface{}{ti}).StringSlice()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println("jobIDs size: ", len(jobIDs))
+	fmt.Println("jobIDs: ", jobIDs)
+}
+
+func TestTime(t *testing.T) {
+	now := time.Now()
+	fmt.Println(now.Unix())
+	// on := now.Add(time.Duration(time.Minute)).Unix()
+	// fmt.Println(on)
+}
+
+func TestTicker(t *testing.T) {
+	ticker := time.NewTicker(time.Duration(time.Second * 1))
+	for {
+		select {
+		case <-ticker.C:
+			fmt.Println(time.Now())
+		}
+	}
+}
+
 func TestGetReadyJob(t *testing.T) {
 	config := RedisConfiguration{
 		Host: "192.168.89.160",

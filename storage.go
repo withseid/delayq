@@ -33,6 +33,11 @@ type redisStorage interface {
 	pushToDelayQueue(topic string, job Job) error
 	getReadyJob(topic string) (*Job, error)
 	putJobPool(topic string, jobID string, value string) error
+	migrateExpiredJob(topic string) error
+}
+
+func (r *implStorage) migrateExpiredJob(topic string) error {
+	panic("impl me")
 }
 
 func (r *implStorage) getReadyJob(topic string) (*Job, error) {
@@ -52,30 +57,7 @@ func (r *implStorage) getReadyJob(topic string) (*Job, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return &job, nil
-	// 从 ready_queue 中获取一个 jobID
-	// 以下三个 redis 操作，改为 lua script 执行
-	// jobID, err := r.redisCli.RPop(context.TODO(), topic).Result()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// jobStr, err := r.redisCli.HGet(context.TODO(), topic, jobID).Result()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// err = r.redisCli.HDel(context.TODO(), topic, jobID).Err()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// job := Job{}
-	// err = json.Unmarshal([]byte(jobStr), &job)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return &job, nil
-
 }
 
 func (r *implStorage) pushToDelayQueue(topic string, job Job) error {
