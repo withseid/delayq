@@ -1,25 +1,124 @@
 package delayq
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	uuid "github.com/satori/go.uuid"
+	"golang.org/x/sync/semaphore"
 )
 
-func TestNewClient(t *testing.T) {
-	config := RedisConfiguration{
-		Host: "192.168.89.160",
-		Port: "6379",
+type Space struct {
+	ID     string
+	UserID string
+	Phone  string
+}
+
+func TestSemaphoreWeight(t *testing.T) {
+	ctx := context.Background()
+	var sema = semaphore.NewWeighted(int64(4))
+	for i := 0; i < 10; i++ {
+		err := sema.Acquire(ctx, 1)
+		if err != nil {
+			panic(err)
+		}
+
+		go func(i int) {
+			defer sema.Release(1)
+			time.Sleep(time.Second * 5)
+			t.Log(i)
+		}(i)
 	}
-	client := NewClient(config)
-	a := []int{1, 2, 3}
-	b, err := json.Marshal(a)
+
+	err := sema.Acquire(ctx, 4)
 	if err != nil {
 		panic(err)
 	}
-	client.Enqueue(b, "aaa", "job_id", ProcessAt(time.Now().AddDate(1, 0, 0)))
+}
+
+var spaceExpiredTopic = "space_expired"
+
+func TestNewClient(t *testing.T) {
+	config := RedisConfiguration{
+		Host: "127.0.0.1",
+		Port: "6379",
+	}
+	client := NewClient(config)
+	space := Space{
+		ID:     "space1",
+		UserID: "user1",
+		Phone:  "phone1",
+	}
+
+	data, err := json.Marshal(space)
+	if err != nil {
+		panic(err)
+	}
+
+	topic := "space_expired"
+	client.Enqueue(topic, "job_id1", data, ProcessAt(time.Now().AddDate(1, 0, 0)))
+
+	space.ID = "space2"
+	space.UserID = "user2"
+	space.Phone = "phone2"
+	data, err = json.Marshal(space)
+	if err != nil {
+		panic(err)
+	}
+	client.Enqueue(topic, "job_id2", data, ProcessIn(time.Hour*2))
+
+	space.ID = "space3"
+	space.UserID = "user3"
+	space.Phone = "phone3"
+	data, err = json.Marshal(space)
+	if err != nil {
+		panic(err)
+	}
+	client.Enqueue(topic, "job_id3", data)
+
+}
+
+func TestRedisHash(t *testing.T) {
+	config := RedisConfiguration{
+		Host: "127.0.0.1",
+		Port: "6379",
+	}
+	cli, err := initRedis(config)
+	if err != nil {
+		panic(err)
+	}
+
+	topicID := "topic1"
+	jobID := uuid.NewV4().String()
+	j := Job{
+		Topic: topicID,
+		ID:    jobID,
+		Delay: 100,
+	}
+	b, _ := json.Marshal(j)
+	err = cli.HSet(context.TODO(), topicID, jobID, string(b)).Err()
+	if err != nil {
+		panic(err)
+	}
+
+	topicID = "topic2"
+	jobID = uuid.NewV4().String()
+	j = Job{
+		Topic: topicID,
+		ID:    jobID,
+		Delay: 300,
+	}
+
+	b, _ = json.Marshal(j)
+
+	err = cli.HSet(context.TODO(), topicID, jobID, string(b)).Err()
+	if err != nil {
+		panic(err)
+	}
 
 }
 
@@ -55,18 +154,25 @@ func TestNewClient(t *testing.T) {
 // 	t.Log("nums: ", nums)
 // }
 
-// func TestLuaIncrBy(t *testing.T) {
-// 	InitRedis()
+func TestLuaIncrBy(t *testing.T) {
+	config := RedisConfiguration{
+		Host: "127.0.0.1",
+		Port: "6379",
+	}
+	redisCli, err := initRedis(config)
+	if err != nil {
+		t.Log("initRedis Error: ", err)
+	}
 
-// 	keys := []string{"test1"}
-// 	values := []interface{}{5}
-// 	num, err := incrBy.Run(context.Background(), RedisCli, keys, values...).Int()
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	t.Log("num: ", num)
+	keys := []string{"test1"}
+	values := []interface{}{5}
+	num, err := incrBy.Run(context.Background(), redisCli, keys, values...).Int()
+	if err != nil {
+		t.Log("Run Error: ", err)
+	}
+	t.Log("num: ", num)
 
-// }
+}
 
 // func TestLuaSum(t *testing.T) {
 // 	InitRedis()
@@ -78,6 +184,38 @@ func TestNewClient(t *testing.T) {
 // 	}
 // 	t.Log("num: ", num)
 // }
+
+func TestRedisCall(t *testing.T) {
+	config := RedisConfiguration{
+		Host: "127.0.0.1",
+		Port: "6379",
+	}
+	redisCli, err := initRedis(config)
+	if err != nil {
+		t.Log("initRedis Error: ", err)
+	}
+	topic := "topic_lilh"
+
+	job := Job{
+		ID:    uuid.NewV4().String(),
+		Delay: 456545646,
+		Topic: topic,
+	}
+
+	delayQueueKey := fmt.Sprintf("%s_%s", RedisDelayQueue, topic)
+	jobPoolTopic := fmt.Sprintf("%s_%s", RedisJobPool, topic)
+	jobBytes, _ := json.Marshal(job)
+	fmt.Println("jobBytes: ", string(jobBytes))
+
+	isSuccess, err := pushToDelayQueueScript.Run(context.Background(), redisCli, []string{delayQueueKey, jobPoolTopic},
+		[]interface{}{job.ID, job.Delay, string(jobBytes)}).Bool()
+
+	if err != nil {
+		t.Log("Run Error: ", err)
+	}
+	t.Log("isSuccess: ", isSuccess)
+
+}
 
 var sum = redis.NewScript(`
 	local key = KEYS[1]

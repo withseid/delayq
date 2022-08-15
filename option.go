@@ -26,7 +26,7 @@ func (d timeoutOption) String() string     { return fmt.Sprintf("Timeout(%v)", t
 func (d timeoutOption) Type() OptionType   { return TimeoutOpt }
 func (d timeoutOption) Value() interface{} { return time.Duration(d) }
 
-func ProcessInt(d time.Duration) Option {
+func ProcessIn(d time.Duration) Option {
 	return processInOption(d)
 }
 func (p processAtOption) String() string {

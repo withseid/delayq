@@ -1,42 +1,34 @@
 package delayq
 
 import (
+	"log"
 	"time"
-
-	s "github.com/deckarep/golang-set"
 )
 
-type Client struct {
-	storage Storage
-	jobPool map[string]*Job
-
-	readyQueue map[string]s.Set
+type client struct {
+	storage storage
 }
 
-func NewClient(config RedisConfiguration) Client {
-	storage, err := NewStorage(config)
+func NewClient(config RedisConfiguration) client {
+	storage, err := newStorage(config)
 	if err != nil {
 		panic(err)
 	}
 
-	client := Client{
-		storage:    storage,
-		jobPool:    make(map[string]*Job),
-		readyQueue: make(map[string]s.Set),
+	client := client{
+		storage: storage,
 	}
 	return client
 }
 
-func (c *Client) Dequeue(topic string, jobID string) {
-	for k := range c.jobPool {
-		if k == jobID {
-			delete(c.jobPool, jobID)
-		}
+func (c *client) Dequeue(topic string, jobID string) {
+	err := c.storage.popFromDelayQueue(topic, jobID)
+	if err != nil {
+		log.Fatal(err)
 	}
-
 }
 
-func (c *Client) Enqueue(payload []byte, topic string, jobID string, opts ...Option) error {
+func (c *client) Enqueue(topic string, jobID string, payload []byte, opts ...Option) {
 	job := &Job{
 		Topic: topic,
 		ID:    jobID,
@@ -57,24 +49,19 @@ func (c *Client) Enqueue(payload []byte, topic string, jobID string, opts ...Opt
 
 		}
 	}
+
+	// TODO: 超时处理
 	if job.Delay == 0 {
-		job.State = JobReady
-	} else {
-		job.State = JobDelay
-	}
-
-	// 如果不是延迟任务，马上加入就绪队列
-	if job.State == JobReady {
-		queue, ok := c.readyQueue[topic]
-		if !ok {
-			queue = s.NewSet()
+		err := c.storage.pushToReadyQueue(topic, *job)
+		if err != nil {
+			log.Fatal("error: ", err)
 		}
-		queue.Add(jobID)
-
-		c.readyQueue[topic] = queue
-	} else {
-		c.storage.ZAdd(DelayBucket, job)
+		return
 	}
 
-	return nil
+	err := c.storage.pushToDelayQueue(topic, *job)
+	if err != nil {
+		log.Fatal("error: ", err)
+	}
+
 }
