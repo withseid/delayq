@@ -37,27 +37,44 @@ type redisStorage interface {
 
 func (r *implStorage) getReadyJob(topic string) (*Job, error) {
 
-	// 从 ready_queue 中获取一个 jobID
-	// 以下三个 redis 操作，改为 lua script 执行
-	jobID, err := r.redisCli.RPop(context.TODO(), topic).Result()
+	readyQueueKey := fmt.Sprintf("%s_%s", RedisReadyQueue, topic)
+	jobPoolKey := fmt.Sprintf("%s_%s", RedisJobPool, topic)
+
+	res, err := getReadyJobScript.Run(context.TODO(), r.redisCli, []string{readyQueueKey, jobPoolKey}).Result()
+
 	if err != nil {
 		return nil, err
 	}
 
-	jobStr, err := r.redisCli.HGet(context.TODO(), topic, jobID).Result()
-	if err != nil {
-		return nil, err
-	}
-	err = r.redisCli.HDel(context.TODO(), topic, jobID).Err()
-	if err != nil {
-		return nil, err
-	}
+	str := res.(string)
 	job := Job{}
-	err = json.Unmarshal([]byte(jobStr), &job)
+	err = json.Unmarshal([]byte(str), &job)
 	if err != nil {
 		return nil, err
 	}
+
 	return &job, nil
+	// 从 ready_queue 中获取一个 jobID
+	// 以下三个 redis 操作，改为 lua script 执行
+	// jobID, err := r.redisCli.RPop(context.TODO(), topic).Result()
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// jobStr, err := r.redisCli.HGet(context.TODO(), topic, jobID).Result()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// err = r.redisCli.HDel(context.TODO(), topic, jobID).Err()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// job := Job{}
+	// err = json.Unmarshal([]byte(jobStr), &job)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// return &job, nil
 
 }
 
@@ -80,7 +97,7 @@ func (r *implStorage) pushToReadyQueue(topic string, job Job) error {
 		return err
 	}
 
-	return pushToReadyQueue.Run(context.TODO(), r.redisCli, []string{readyQueueKey, jobPoolTopic}, []interface{}{
+	return pushToReadyQueueScript.Run(context.TODO(), r.redisCli, []string{readyQueueKey, jobPoolTopic}, []interface{}{
 		job.ID, string(jobBytes),
 	}).Err()
 }

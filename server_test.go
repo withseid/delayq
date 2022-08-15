@@ -2,6 +2,8 @@ package delayq
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	"golang.org/x/sync/semaphore"
@@ -9,7 +11,7 @@ import (
 
 func TestDelayQServer(t *testing.T) {
 	config := RedisConfiguration{
-		Host: "127.0.0.1",
+		Host: "192.168.89.160",
 		Port: "6379",
 	}
 
@@ -30,5 +32,13 @@ func (s *Space) Topic() string {
 }
 
 func (s *Space) Execute(ctx context.Context, payload []byte) error {
-	panic("")
+
+	space := Space{}
+	err := json.Unmarshal(payload, &space)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("[Execute] Space: ", space)
+	return nil
 }

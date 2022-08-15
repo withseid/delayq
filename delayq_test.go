@@ -12,10 +12,29 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-type Space struct {
-	ID     string
-	UserID string
-	Phone  string
+func TestGetReadyJob(t *testing.T) {
+	config := RedisConfiguration{
+		Host: "192.168.89.160",
+		Port: "6379",
+	}
+	cli, err := initRedis(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	job := Job{}
+	res, err := getReadyJobScript.Run(context.TODO(), cli,
+		[]string{"delayQ_ready_queue_space_expired", "delayQ_job_pool_space_expired"}).Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log("res: ", res)
+	str := res.(string)
+	err = json.Unmarshal([]byte(str), &job)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println("job: ", string(job.Boday))
+
 }
 
 func TestSemaphoreWeight(t *testing.T) {
@@ -38,48 +57,6 @@ func TestSemaphoreWeight(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-var spaceExpiredTopic = "space_expired"
-
-func TestNewClient(t *testing.T) {
-	config := RedisConfiguration{
-		Host: "127.0.0.1",
-		Port: "6379",
-	}
-	client := NewClient(config)
-	space := Space{
-		ID:     "space1",
-		UserID: "user1",
-		Phone:  "phone1",
-	}
-
-	data, err := json.Marshal(space)
-	if err != nil {
-		panic(err)
-	}
-
-	topic := "space_expired"
-	client.Enqueue(topic, "job_id1", data, ProcessAt(time.Now().AddDate(1, 0, 0)))
-
-	space.ID = "space2"
-	space.UserID = "user2"
-	space.Phone = "phone2"
-	data, err = json.Marshal(space)
-	if err != nil {
-		panic(err)
-	}
-	client.Enqueue(topic, "job_id2", data, ProcessIn(time.Hour*2))
-
-	space.ID = "space3"
-	space.UserID = "user3"
-	space.Phone = "phone3"
-	data, err = json.Marshal(space)
-	if err != nil {
-		panic(err)
-	}
-	client.Enqueue(topic, "job_id3", data)
-
 }
 
 func TestRedisHash(t *testing.T) {
