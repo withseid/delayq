@@ -88,6 +88,8 @@ func main() {
 	// 假设当前时间是 2022-08-16 18：12
 	// delayq.ProcessIn(time.Hour*24) 表示将在当前时间的基础上，延迟 24 小时后执行
 	client.Enqueue(model.DeletedSpaceTopic, space2.SpaceID, data, delayq.ProcessIn(time.Hour*24))
+
+    // 将 JobID 为 space2 的延迟任务出队
 	client.Dequeue(model.DeletedSpaceTopic, space2.SpaceID)
 }
 
