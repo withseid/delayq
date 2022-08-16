@@ -54,14 +54,13 @@ func (c *client) Enqueue(topic string, jobID string, payload []byte, opts ...Opt
 	if job.Delay == 0 {
 		err := c.storage.pushToReadyQueue(topic, *job)
 		if err != nil {
-			log.Fatal("error: ", err)
+			log.Fatal("[delayq pushToReadyQueue error]: ", err)
 		}
 		return
 	}
 
 	err := c.storage.pushToDelayQueue(topic, *job)
 	if err != nil {
-		log.Fatal("error: ", err)
+		log.Fatal("[delayq pushToDelayQueue error]: ", err)
 	}
-
 }

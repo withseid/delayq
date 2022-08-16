@@ -11,21 +11,52 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"golang.org/x/sync/semaphore"
 )
 
 type server struct {
-	stopCh  chan struct{}
-	close   uint32
-	workers []*Worker
-	storage storage
+	stopCh   chan struct{}
+	close    uint32
+	storage  storage
+	handlers map[string]Handler
 }
 
-type Worker struct {
-	TopicName   string
-	Handler     JobHandler
-	Concurrency int
-	WorkerPool  semaphore.Weighted
+func NewServer(config RedisConfiguration) *server {
+	storage, err := newStorage(config)
+	if err != nil {
+		log.Fatalf("[delayq error] newStorage error: %+v\n", err)
+	}
+
+	s := server{
+		stopCh:   make(chan struct{}),
+		close:    0,
+		storage:  storage,
+		handlers: make(map[string]Handler),
+	}
+	return &s
+}
+
+func (n *server) Run(ctx context.Context) error {
+	for topic, h := range n.handlers {
+		go n.migrateExpiredJob(topic)
+		go n.process(ctx, h)
+	}
+
+	go n.watchSystemSignal(ctx)
+	<-n.stopCh
+	return nil
+}
+
+func (s *server) watchSystemSignal(ctx context.Context) {
+	sigterm := make(chan os.Signal, 1)
+	signal.Notify(sigterm, syscall.SIGINT, syscall.SIGTERM)
+	select {
+	case <-ctx.Done():
+		log.Println("terminating: context cancelled")
+	case <-sigterm:
+		log.Println("terminating: via signal")
+	}
+	s.stopCh <- struct{}{}
+	atomic.AddUint32(&s.close, 1)
 }
 
 func (s *server) migrateExpiredJob(topic string) {
@@ -42,88 +73,50 @@ func (s *server) migrateExpiredJob(topic string) {
 	}
 }
 
-func NewServer(config RedisConfiguration, workers []*Worker) *server {
-
-	storage, err := newStorage(config)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	s := server{
-		stopCh:  make(chan struct{}),
-		close:   0,
-		storage: storage,
-		workers: workers,
-	}
-	return &s
-}
-
-type JobHandler interface {
-	Topic() string
-	Execute(context.Context, []byte) error
-}
-
-func (s *server) Run(ctx context.Context) error {
-
-	for _, worker := range s.workers {
-		go s.migrateExpiredJob(worker.TopicName)
-		go s.process(ctx, worker)
-	}
-
-	go s.watchSystemSignal(ctx)
-
-	<-s.stopCh
-	return nil
-}
-
-func (s *server) watchSystemSignal(ctx context.Context) {
-	sigterm := make(chan os.Signal, 1)
-	signal.Notify(sigterm, syscall.SIGINT, syscall.SIGTERM)
-	select {
-	case <-ctx.Done():
-		log.Println("terminating: context cancelled")
-	case <-sigterm:
-		log.Println("terminating: via signal")
-	}
-	s.stopCh <- struct{}{}
-}
-
-func (s *server) process(ctx context.Context, worker *Worker) error {
+func (n *server) process(ctx context.Context, h Handler) error {
+	sema := NewSemaphore(10)
 
 	for {
-		if atomic.LoadUint32(&s.close) == serverClosed {
+		if atomic.LoadUint32(&n.close) == serverClosed {
 			break
 		}
-		if err := worker.WorkerPool.Acquire(ctx, 1); err != nil {
-			return err
-		}
+		sema.Add(1)
 
-		job, err := s.storage.getReadyJob(worker.TopicName)
+		job, err := n.storage.getReadyJob(h.Topic())
 		if err != nil && err != redis.Nil {
-			worker.WorkerPool.Release(1)
+			sema.Done()
 			continue
 		}
 
 		if job == nil {
-			worker.WorkerPool.Release(1)
+			sema.Done()
 			time.Sleep(time.Second * 1)
 			continue
 		}
-
 		go func() {
-			err := worker.Handler.Execute(ctx, job.Boday)
+
+			defer sema.Done()
+			err := h.Execute(ctx, job)
 			if err != nil {
 				// TODO: 将该任务放回 ReadyQueue, 并且要返回错误
-
 				return
 			}
-			worker.WorkerPool.Release(1)
+
 		}()
 	}
 
-	if err := worker.WorkerPool.Acquire(ctx, int64(worker.Concurrency)); err != nil {
-		return err
-	}
-
+	sema.Wait()
 	return nil
+}
+
+func (n *server) HandlerFunc(topic string, handler Handler) {
+	if handler == nil {
+		panic("[delayq error] nil handler")
+	}
+	n.handlers[topic] = handler
+}
+
+type Handler interface {
+	Execute(ctx context.Context, job *Job) error
+	Topic() string
 }

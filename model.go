@@ -1,11 +1,5 @@
 package delayq
 
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-)
-
 type RedisConfiguration struct {
 	Host string
 	Port string
@@ -25,26 +19,3 @@ var (
 	RedisReadyQueue        = "delayQ_ready_queue"
 	serverClosed    uint32 = 1
 )
-var spaceExpiredTopic = "space_expired"
-
-type Space struct {
-	ID     string
-	UserID string
-	Phone  string
-}
-
-func (s *Space) Topic() string {
-	return spaceExpiredTopic
-}
-
-func (s *Space) Execute(ctx context.Context, payload []byte) error {
-
-	space := Space{}
-	err := json.Unmarshal(payload, &space)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("[Execute] Space: ", space)
-	return nil
-}
