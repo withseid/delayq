@@ -93,13 +93,14 @@ func (r *implStorage) pushToReadyQueue(topic string, job Job) error {
 	}).Err()
 }
 
-func (r *implStorage) popFromDelayQueue(topic string, value string) error {
+func (r *implStorage) popFromDelayQueue(topic string, jobID string) error {
 
 	key := fmt.Sprintf("%s_%s", RedisDelayQueue, topic)
-	err := r.redisCli.HDel(context.TODO(), key, value).Err()
+	err := r.redisCli.ZRem(context.TODO(), key, jobID).Err()
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
