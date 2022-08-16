@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 )
@@ -37,7 +38,15 @@ type redisStorage interface {
 }
 
 func (r *implStorage) migrateExpiredJob(topic string) error {
-	panic("impl me")
+	readyQueueKey := fmt.Sprintf("%s_%s", RedisReadyQueue, topic)
+	delayQueueKey := fmt.Sprintf("%s_%s", RedisDelayQueue, topic)
+	currentTime := time.Now().Unix()
+	_, err := migrateExpiredJobScript.Run(context.TODO(), r.redisCli,
+		[]string{delayQueueKey, readyQueueKey}, []interface{}{currentTime}).StringSlice()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *implStorage) getReadyJob(topic string) (*Job, error) {

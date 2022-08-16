@@ -2,6 +2,7 @@ package delayq
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -30,12 +31,14 @@ type Worker struct {
 func (s *server) migrateExpiredJob(topic string) {
 	ticker := time.NewTicker(time.Duration(time.Second * 1))
 	for {
-
+		if atomic.LoadUint32(&s.close) == serverClosed {
+			break
+		}
 		select {
 		case <-ticker.C:
+			fmt.Println("A second has passed")
 			s.storage.migrateExpiredJob(topic)
 		}
-
 	}
 }
 

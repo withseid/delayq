@@ -14,7 +14,7 @@ import (
 
 func TestMigrate(t *testing.T) {
 	config := RedisConfiguration{
-		Host: "192.168.89.160",
+		Host: "127.0.0.1",
 		Port: "6379",
 	}
 	cli, err := initRedis(config)
@@ -53,7 +53,7 @@ func TestTicker(t *testing.T) {
 
 func TestGetReadyJob(t *testing.T) {
 	config := RedisConfiguration{
-		Host: "192.168.89.160",
+		Host: "127.0.0.1",
 		Port: "6379",
 	}
 	cli, err := initRedis(config)
