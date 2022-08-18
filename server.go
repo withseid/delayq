@@ -13,20 +13,20 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-type server struct {
+type Server struct {
 	stopCh   chan struct{}
 	close    uint32
 	storage  storage
 	handlers map[string]Handler
 }
 
-func NewServer(config RedisConfiguration) *server {
+func NewServer(config RedisConfiguration) *Server {
 	storage, err := newStorage(config)
 	if err != nil {
 		log.Fatalf("[delayq error] newStorage error: %+v\n", err)
 	}
 
-	s := server{
+	s := Server{
 		stopCh:   make(chan struct{}),
 		close:    0,
 		storage:  storage,
@@ -35,7 +35,7 @@ func NewServer(config RedisConfiguration) *server {
 	return &s
 }
 
-func (n *server) Run(ctx context.Context) error {
+func (n *Server) Run(ctx context.Context) error {
 	for topic, h := range n.handlers {
 		go n.migrateExpiredJob(topic)
 		go n.process(ctx, h)
@@ -46,7 +46,7 @@ func (n *server) Run(ctx context.Context) error {
 	return nil
 }
 
-func (s *server) watchSystemSignal(ctx context.Context) {
+func (s *Server) watchSystemSignal(ctx context.Context) {
 	sigterm := make(chan os.Signal, 1)
 	signal.Notify(sigterm, syscall.SIGINT, syscall.SIGTERM)
 	select {
@@ -59,7 +59,7 @@ func (s *server) watchSystemSignal(ctx context.Context) {
 	atomic.AddUint32(&s.close, 1)
 }
 
-func (s *server) migrateExpiredJob(topic string) {
+func (s *Server) migrateExpiredJob(topic string) {
 	ticker := time.NewTicker(time.Duration(time.Second * 1))
 	for {
 		if atomic.LoadUint32(&s.close) == serverClosed {
@@ -73,7 +73,7 @@ func (s *server) migrateExpiredJob(topic string) {
 	}
 }
 
-func (n *server) process(ctx context.Context, h Handler) error {
+func (n *Server) process(ctx context.Context, h Handler) error {
 	sema := NewSemaphore(10)
 
 	for {
@@ -109,7 +109,7 @@ func (n *server) process(ctx context.Context, h Handler) error {
 	return nil
 }
 
-func (n *server) HandlerFunc(topic string, handler Handler) {
+func (n *Server) HandlerFunc(topic string, handler Handler) {
 	if handler == nil {
 		panic("[delayq error] nil handler")
 	}

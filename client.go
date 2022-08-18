@@ -5,30 +5,30 @@ import (
 	"time"
 )
 
-type client struct {
+type Client struct {
 	storage storage
 }
 
-func NewClient(config RedisConfiguration) client {
+func NewClient(config RedisConfiguration) Client {
 	storage, err := newStorage(config)
 	if err != nil {
 		panic(err)
 	}
 
-	client := client{
+	client := Client{
 		storage: storage,
 	}
 	return client
 }
 
-func (c *client) Dequeue(topic string, jobID string) {
+func (c *Client) Dequeue(topic string, jobID string) {
 	err := c.storage.popFromDelayQueue(topic, jobID)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (c *client) Enqueue(topic string, jobID string, payload []byte, opts ...Option) {
+func (c *Client) Enqueue(topic string, jobID string, payload []byte, opts ...Option) {
 	job := &Job{
 		Topic: topic,
 		ID:    jobID,
