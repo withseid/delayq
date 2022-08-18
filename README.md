@@ -1,5 +1,7 @@
 # 延迟队列 delayq
 
+
+
 ## 业务背景
 
 在工作时，遇到以下业务需求
@@ -12,7 +14,7 @@
 
 
 
-后来，我们采用的方案是***\*延迟队列\****，一开始考虑的是用 [beanstalkd](https://github.com/beanstalkd/beanstalkd) , 但是 beanstalkd 存在一个问题是，只支持入队操作，不支持出队操作。因此 beanstalkd 也被抛弃了。因为在我们的需求中，是需要有出队操作的。
+后来，我们采用的方案是**延迟队列**，一开始考虑的是用 [beanstalkd](https://github.com/beanstalkd/beanstalkd) , 但是 beanstalkd 存在一个问题是，只支持入队操作，不支持出队操作。因此 beanstalkd 也被抛弃了。因为在我们的需求中，是需要有出队操作的。
 
 例如，当用户删除某个资源时，将该准备删除的资源加入延迟队列，24小时后自动删除该资源，如果在 24 小时内，用户点击了撤销操作，此时需要将该资源的信息从延迟队列中删除。
 
@@ -44,7 +46,7 @@
 ## Quickstart 
 通过 go get 安装 delayq 
 ```go 
-go get -u github.com/yangdodo/delayq
+go get -u github.com/withseid/delayq
 ```
 
 新建一个 Client，通过 Client 将延迟任务入队
