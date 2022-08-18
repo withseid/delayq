@@ -57,8 +57,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/yangdodo/delayq"
-	"gitlab.mvalley.com/rime-index/garen/test/delayq/model"
+	"github.com/withseid/delayq"
+	"github.com/withseid/delayq/example/model"
 )
 
 func main() {
@@ -78,7 +78,7 @@ func main() {
 
 	// 假设当前时间是 2022-08-16 18：12
 	// delayq.ProcessAt(time.Now().AddDate(0, 0, 1)) 表示将在 2022-08-17 18:12 执行该任务
-	client.Enqueue(model.DeletedSpaceTopic, space1.SpaceID, data, delayq.ProcessAt(time.Now().AddDate(0, 0, 1)))
+	client.Enqueue(space1.Topic(), space1.SpaceID, data, delayq.ProcessAt(time.Now().AddDate(0, 0, 1)))
 
 	space2 := model.DeletedSpace{
 		SpaceID: "space2",
@@ -89,12 +89,11 @@ func main() {
 	}
 	// 假设当前时间是 2022-08-16 18：12
 	// delayq.ProcessIn(time.Hour*24) 表示将在当前时间的基础上，延迟 24 小时后执行
-	client.Enqueue(model.DeletedSpaceTopic, space2.SpaceID, data, delayq.ProcessIn(time.Hour*24))
+	client.Enqueue(space2.Topic(), space2.SpaceID, data, delayq.ProcessIn(time.Hour*24))
 
-    // 将 JobID 为 space2 的延迟任务出队
-	client.Dequeue(model.DeletedSpaceTopic, space2.SpaceID)
+	// 将 JobID 为 space2 的延迟任务出队
+	client.Dequeue(space2.Topic(), space2.SpaceID)
 }
-
 
 ```
 
@@ -105,8 +104,8 @@ package main
 import (
 	"context"
 
-	"github.com/yangdodo/delayq"
-	"gitlab.mvalley.com/rime-index/garen/test/delayq/model"
+	"github.com/withseid/delayq"
+	"github.com/withseid/delayq/example/model"
 )
 
 func main() {
@@ -120,7 +119,6 @@ func main() {
 	server.HandlerFunc(ds.Topic(), &ds)
 	server.Run(context.TODO())
 }
-
 ```
 
 DeletedSpace 类型的延迟任务的处理逻辑 
@@ -132,10 +130,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/yangdodo/delayq"
+	"github.com/withseid/delayq"
 )
 
-const DeletedSpaceTopic = "deleted_space"
+// const DeletedSpaceTopic = "deleted_space"
 
 type DeletedSpace struct {
 	SpaceID string
@@ -155,5 +153,4 @@ func (d *DeletedSpace) Execute(ctx context.Context, job *delayq.Job) error {
 	fmt.Println("DeletedSpace: ", ds)
 	return nil
 }
-
 ```
