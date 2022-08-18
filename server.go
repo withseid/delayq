@@ -2,7 +2,6 @@ package delayq
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -67,7 +66,6 @@ func (s *Server) migrateExpiredJob(topic string) {
 		}
 		select {
 		case <-ticker.C:
-			fmt.Println("A second has passed")
 			s.storage.migrateExpiredJob(topic)
 		}
 	}
