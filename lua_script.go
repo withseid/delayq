@@ -56,11 +56,22 @@ var getReadyJobScript = redis.NewScript(`
 	local readyQueueKey = KEYS[1]
 	local jobPoolKey = KEYS[2]
 	
-	local jobID = redis.pcall("rpop",readyQueueKey)
+	local jobID = redis.call("rpop",readyQueueKey)
 
 	local job = redis.call("hget",jobPoolKey,jobID)
 
 	redis.call("hdel",jobPoolKey,jobID)
 
 	return job
+`)
+
+var deleteDelayJobScript = redis.NewScript(`
+	local delayQueueKey = KEYS[1]
+	local jobPoolKey = KEYS[2]
+	local jobID = ARGV[1]
+
+	redis.call("zrem",delayQueueKey,jobID)
+	redis.call("hdel",jobPoolKey,jobID)
+
+	return true
 `)

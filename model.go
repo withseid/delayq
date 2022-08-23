@@ -1,5 +1,7 @@
 package delayq
 
+import "fmt"
+
 type RedisConfiguration struct {
 	Host string
 	Port string
@@ -19,3 +21,15 @@ var (
 	RedisReadyQueue        = "delayQ_ready_queue"
 	serverClosed    uint32 = 1
 )
+
+func getDelayQueueKey(topic string) string {
+	return fmt.Sprintf("%s_%s", RedisDelayQueue, topic)
+}
+
+func getReadyQueueKey(topic string) string {
+	return fmt.Sprintf("%s_%s", RedisReadyQueue, topic)
+}
+
+func getJobPoolKey(topic string) string {
+	return fmt.Sprintf("%s_%s", RedisJobPool, topic)
+}

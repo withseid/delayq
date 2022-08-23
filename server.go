@@ -96,7 +96,7 @@ func (n *Server) process(ctx context.Context, h Handler) error {
 			defer sema.Done()
 			err := h.Execute(ctx, job)
 			if err != nil {
-				// TODO: 将该任务放回 ReadyQueue, 并且要返回错误
+				n.storage.pushToReadyQueue(h.Topic(), *job)
 				return
 			}
 
