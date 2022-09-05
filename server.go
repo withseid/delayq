@@ -21,6 +21,7 @@ type Server struct {
 
 func NewServer(config RedisConfiguration) *Server {
 	storage, err := newStorage(config)
+	log.Println("Init Storage")
 	if err != nil {
 		log.Fatalf("[delayq error] newStorage error: %+v\n", err)
 	}
@@ -59,6 +60,8 @@ func (s *Server) watchSystemSignal(ctx context.Context) {
 }
 
 func (s *Server) migrateExpiredJob(topic string) {
+
+	log.Println("migrateExpiredJob start")
 	ticker := time.NewTicker(time.Duration(time.Second * 1))
 	for {
 		if atomic.LoadUint32(&s.close) == serverClosed {
@@ -69,9 +72,11 @@ func (s *Server) migrateExpiredJob(topic string) {
 			s.storage.migrateExpiredJob(topic)
 		}
 	}
+	log.Println("migrateExpiredJob end")
 }
 
 func (n *Server) process(ctx context.Context, h Handler) error {
+	log.Println("process start")
 	sema := NewSemaphore(10)
 
 	for {
@@ -92,11 +97,28 @@ func (n *Server) process(ctx context.Context, h Handler) error {
 			continue
 		}
 		go func() {
-
 			defer sema.Done()
+			// TODO: 若执行过程中，程序被中断，该消息会丢失
 			err := h.Execute(ctx, job)
 			if err != nil {
-				n.storage.pushToReadyQueue(h.Topic(), *job)
+				log.Println("[Execute] Error: ", err)
+
+				var retryInterval int64
+
+				job.RetryCount++
+
+				// 有限重试且重试次数到了， return
+				if job.MaxRetry != -1 && job.RetryCount >= job.MaxRetry {
+					return
+				}
+
+				if job.RetryCount >= 12 {
+					retryInterval = 1 << 12
+				} else {
+					retryInterval = 1 << job.RetryCount
+				}
+				job.Delay = time.Now().Add(time.Duration(retryInterval) * time.Second).Unix()
+				n.storage.pushToDelayQueue(h.Topic(), *job)
 				return
 			}
 
@@ -104,6 +126,7 @@ func (n *Server) process(ctx context.Context, h Handler) error {
 	}
 
 	sema.Wait()
+	log.Println("process end")
 	return nil
 }
 

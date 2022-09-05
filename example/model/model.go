@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/withseid/delayq"
 )
@@ -25,9 +24,7 @@ func (d *DeletedSpace) Execute(ctx context.Context, job *delayq.Job) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("DeletedSpace job info: ", job)
 
-	time.Sleep(time.Second * 4)
-
-	fmt.Println("DeletedSpace: ", ds)
 	return nil
 }

@@ -8,28 +8,30 @@ type RedisConfiguration struct {
 }
 
 type Job struct {
-	Topic string
-	ID    string
-	Delay int64
-	TTR   int64
-	Boday []byte
+	Topic      string
+	ID         string
+	Delay      int64
+	MaxRetry   int64
+	RetryCount int64
+	TTR        int64
+	Boday      []byte
 }
 
 var (
-	RedisDelayQueue        = "delayQ_delay_queue"
-	RedisJobPool           = "delayQ_job_pool"
-	RedisReadyQueue        = "delayQ_ready_queue"
+	RedisDelayQueue        = "delayq:dq"
+	RedisJobPool           = "delayq:jp"
+	RedisReadyQueue        = "delayq:rq"
 	serverClosed    uint32 = 1
 )
 
 func getDelayQueueKey(topic string) string {
-	return fmt.Sprintf("%s_%s", RedisDelayQueue, topic)
+	return fmt.Sprintf("%s:%s", RedisDelayQueue, topic)
 }
 
 func getReadyQueueKey(topic string) string {
-	return fmt.Sprintf("%s_%s", RedisReadyQueue, topic)
+	return fmt.Sprintf("%s:%s", RedisReadyQueue, topic)
 }
 
 func getJobPoolKey(topic string) string {
-	return fmt.Sprintf("%s_%s", RedisJobPool, topic)
+	return fmt.Sprintf("%s:%s", RedisJobPool, topic)
 }

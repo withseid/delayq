@@ -39,5 +39,5 @@ func main() {
 	client.Enqueue(space2.Topic(), space2.SpaceID, data, delayq.ProcessIn(time.Hour*24))
 
 	// 将 JobID 为 space2 的延迟任务出队
-	client.Dequeue(space2.Topic(), space2.SpaceID)
+	// client.Dequeue(space2.Topic(), space2.SpaceID)
 }

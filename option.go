@@ -11,13 +11,30 @@ const (
 	ProcessAtOpt OptionType = iota
 	ProcessInOpt
 	TimeoutOpt
+	RetryOpt
 )
 
 type (
 	timeoutOption   time.Duration
 	processAtOption time.Time
 	processInOption time.Duration
+	retryOption     int64
 )
+
+func Retry(d int64) Option {
+	return retryOption(d)
+}
+func (r retryOption) String() string {
+	return fmt.Sprintf("Retry(%v)", int64(r))
+}
+
+func (r retryOption) Type() OptionType {
+	return RetryOpt
+}
+
+func (r retryOption) Value() interface{} {
+	return r
+}
 
 func Timeout(d time.Duration) Option {
 	return timeoutOption(d)

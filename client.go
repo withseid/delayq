@@ -30,9 +30,10 @@ func (c *Client) Dequeue(topic string, jobID string) {
 
 func (c *Client) Enqueue(topic string, jobID string, payload []byte, opts ...Option) {
 	job := &Job{
-		Topic: topic,
-		ID:    jobID,
-		Boday: payload,
+		Topic:    topic,
+		ID:       jobID,
+		Boday:    payload,
+		MaxRetry: -1,
 	}
 
 	for _, opt := range opts {
@@ -45,6 +46,9 @@ func (c *Client) Enqueue(topic string, jobID string, payload []byte, opts ...Opt
 		case processInOption:
 			delay := time.Now().Add(time.Duration(opt)).Unix()
 			job.Delay = delay
+		case retryOption:
+			maxRetry := int64(opt)
+			job.MaxRetry = maxRetry
 		default:
 
 		}
