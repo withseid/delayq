@@ -79,12 +79,18 @@ func (n *Server) process(ctx context.Context, h Handler) error {
 	log.Println("process start")
 	sema := NewSemaphore(10)
 
+	// 启动时，会先将上次 process 没处理完成的数据迁移到 ready queue 中，等待重新执行
+	err := n.storage.unfinishToReady(h.Topic())
+	if err != nil {
+		log.Print(err)
+		return err
+	}
 	for {
 		if atomic.LoadUint32(&n.close) == serverClosed {
 			break
 		}
 		sema.Add(1)
-
+		// getReadyJob 的同时，将 job 存放到 process 中
 		job, err := n.storage.getReadyJob(h.Topic())
 		if err != nil && err != redis.Nil {
 			sema.Done()
@@ -98,7 +104,6 @@ func (n *Server) process(ctx context.Context, h Handler) error {
 		}
 		go func() {
 			defer sema.Done()
-			// TODO: 若执行过程中，程序被中断，该消息会丢失
 			err := h.Execute(ctx, job)
 			if err != nil {
 				log.Println("[Execute] Error: ", err)
@@ -120,6 +125,12 @@ func (n *Server) process(ctx context.Context, h Handler) error {
 				job.Delay = time.Now().Add(time.Duration(retryInterval) * time.Second).Unix()
 				n.storage.pushToDelayQueue(h.Topic(), *job)
 				return
+			}
+
+			// 完成后，delete job
+			err = n.storage.deleteFinishJob(h.Topic(), job.ID)
+			if err != nil {
+				log.Println("[Execute] Error: ", err)
 			}
 
 		}()

@@ -18,12 +18,16 @@ type Job struct {
 }
 
 var (
-	RedisDelayQueue        = "delayq:dq"
-	RedisJobPool           = "delayq:jp"
-	RedisReadyQueue        = "delayq:rq"
-	serverClosed    uint32 = 1
+	RedisDelayQueue          = "delayq:dq"
+	RedisJobPool             = "delayq:jp"
+	RedisReadyQueue          = "delayq:rq"
+	RedisProcessQueue        = "delayq:process"
+	serverClosed      uint32 = 1
 )
 
+func getProcessQueueKey(topic string) string {
+	return fmt.Sprintf("%s:%s", RedisProcessQueue, topic)
+}
 func getDelayQueueKey(topic string) string {
 	return fmt.Sprintf("%s:%s", RedisDelayQueue, topic)
 }

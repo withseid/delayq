@@ -2,6 +2,17 @@ package delayq
 
 import "github.com/go-redis/redis/v8"
 
+var unfinishedToReadyScript = redis.NewScript(`
+	local processQueueKey = KEYS[1]
+	local readyQueueKey = KEYS[2]
+	local jobIDs = redis.call("smembers",processQueueKey)
+	for key,value in ipairs(jobIDs) do 
+		redis.call("lpush",readyQueueKey,value)
+		redis.call("srem",processQueueKey,value)
+	end 
+	return jobIDs
+`)
+
 var migrateExpiredJobScript = redis.NewScript(`
 	local delayQueueKey = KEYS[1]
 	local readyQueueKey = KEYS[2]
@@ -17,6 +28,7 @@ var migrateExpiredJobScript = redis.NewScript(`
 var pushToDelayQueueScript = redis.NewScript(`
 	local delayQueueKey = KEYS[1]
 	local jobPoolKey = KEYS[2]
+	local processQueueKey = KEYS[3]
 	local jobID = ARGV[1]
 	local delay = ARGV[2]
 	local payload = ARGV[3]
@@ -29,6 +41,8 @@ var pushToDelayQueueScript = redis.NewScript(`
 	if type(result) == "table" and result.err then 
 		return false 
 	end
+
+	redis.call("srem",processQueueKey,jobID)
 
 	return true 
 `)
@@ -54,14 +68,12 @@ var pushToReadyQueueScript = redis.NewScript(`
 
 var getReadyJobScript = redis.NewScript(`
 	local readyQueueKey = KEYS[1]
-	local jobPoolKey = KEYS[2]
+	local processQueueKey = KEYS[2]
+	local jobPoolKey = KEYS[3]
 	
 	local jobID = redis.call("rpop",readyQueueKey)
-
+	redis.call("sadd",processQueueKey,jobID)
 	local job = redis.call("hget",jobPoolKey,jobID)
-
-	redis.call("hdel",jobPoolKey,jobID)
-
 	return job
 `)
 
@@ -74,4 +86,13 @@ var deleteDelayJobScript = redis.NewScript(`
 	redis.call("hdel",jobPoolKey,jobID)
 
 	return true
+`)
+
+var deleteFinishJobScript = redis.NewScript(`
+	local processQueueKey = KEYS[1]
+	local jobPoolKey = KEYS[2]
+	local jobID = ARGV[1]
+	redis.call("srem",processQueueKey,jobID)
+	redis.call("hdel",jobPoolKey,jobID)
+	return true 
 `)

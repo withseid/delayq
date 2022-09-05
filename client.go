@@ -35,7 +35,6 @@ func (c *Client) Enqueue(topic string, jobID string, payload []byte, opts ...Opt
 		Boday:    payload,
 		MaxRetry: -1,
 	}
-
 	for _, opt := range opts {
 		switch opt := opt.(type) {
 		case timeoutOption:

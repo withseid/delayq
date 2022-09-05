@@ -33,6 +33,16 @@ type redisStorage interface {
 	pushToDelayQueue(topic string, job Job) error
 	getReadyJob(topic string) (*Job, error)
 	migrateExpiredJob(topic string) error
+	deleteFinishJob(topic string, jobID string) error
+	unfinishToReady(topic string) error
+}
+
+func (r *implStorage) unfinishToReady(topic string) error {
+	err := unfinishedToReadyScript.Run(context.TODO(), r.redisCli, []string{getProcessQueueKey(topic), getReadyQueueKey(topic)}).Err()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *implStorage) migrateExpiredJob(topic string) error {
@@ -47,7 +57,8 @@ func (r *implStorage) migrateExpiredJob(topic string) error {
 
 func (r *implStorage) getReadyJob(topic string) (*Job, error) {
 
-	res, err := getReadyJobScript.Run(context.TODO(), r.redisCli, []string{getReadyQueueKey(topic), getJobPoolKey(topic)}).Result()
+	res, err := getReadyJobScript.Run(context.TODO(), r.redisCli,
+		[]string{getReadyQueueKey(topic), getProcessQueueKey(topic), getJobPoolKey(topic)}).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -64,24 +75,28 @@ func (r *implStorage) getReadyJob(topic string) (*Job, error) {
 func (r *implStorage) pushToDelayQueue(topic string, job Job) error {
 
 	jobBytes, _ := json.Marshal(job)
-
-	return pushToDelayQueueScript.Run(context.TODO(), r.redisCli, []string{getDelayQueueKey(topic), getJobPoolKey(topic)},
-		[]interface{}{job.ID, job.Delay, string(jobBytes)}).Err()
+	return pushToDelayQueueScript.Run(context.TODO(), r.redisCli,
+		[]string{getDelayQueueKey(topic), getJobPoolKey(topic), getProcessQueueKey(topic)}, []interface{}{job.ID, job.Delay, string(jobBytes)}).Err()
 }
 
 func (r *implStorage) pushToReadyQueue(topic string, job Job) error {
-
 	jobBytes, err := json.Marshal(job)
 	if err != nil {
 		return err
 	}
 
-	return pushToReadyQueueScript.Run(context.TODO(), r.redisCli, []string{getReadyQueueKey(topic), getJobPoolKey(topic)}, []interface{}{
-		job.ID, string(jobBytes),
-	}).Err()
+	return pushToReadyQueueScript.Run(context.TODO(), r.redisCli,
+		[]string{getReadyQueueKey(topic), getJobPoolKey(topic)}, []interface{}{
+			job.ID, string(jobBytes),
+		}).Err()
 }
 
 func (r *implStorage) popFromDelayQueue(topic string, jobID string) error {
-	return deleteDelayJobScript.Run(context.TODO(), r.redisCli, []string{getDelayQueueKey(topic), getJobPoolKey(topic)},
-		[]interface{}{jobID}).Err()
+	return deleteDelayJobScript.Run(context.TODO(), r.redisCli,
+		[]string{getDelayQueueKey(topic), getJobPoolKey(topic)}, []interface{}{jobID}).Err()
+}
+
+func (r *implStorage) deleteFinishJob(topic string, jobID string) error {
+	return deleteFinishJobScript.Run(context.TODO(), r.redisCli,
+		[]string{getProcessQueueKey(topic), getJobPoolKey(topic)}, []interface{}{jobID}).Err()
 }
