@@ -79,7 +79,7 @@ func main() {
 - ProcessIn: 从当前时间算起，延迟多久后再执行任务
 - Retry：重试次数，此 Option 不配置时，默认无限重试，重试时间每次递增，从 2<sup>1</sup> -> 2<sup>12 </sup> s
 
-在可选 Option 中，若 ProcessAt 和 ProcessIn 都不选，则该任务立即执行。多 ProcessAt 和 ProcessIn 都选了，则只有最后一个会生效。 
+在可选 Option 中，若 ProcessAt 和 ProcessIn 都不选，则该任务立即执行。若 ProcessAt 和 ProcessIn 都选了，则只有最后一个会生效。 
 
 可选 Option ProcessAt, 例如 `delayq.ProcessAt(time.Now().AddDate(0, 0, 1))` 表示将在第二天的这个时间执行某个任务
 ```go
