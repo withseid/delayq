@@ -13,7 +13,7 @@ func TestDelayQueue(t *testing.T) {
 	go producer()
 
 	config := RedisConfiguration{
-		Host: "192.168.89.160",
+		Host: "127.0.0.1",
 		Port: "6379",
 	}
 	server := NewServer(config)
@@ -27,7 +27,7 @@ func TestDelayQueue(t *testing.T) {
 func producer() {
 
 	config := RedisConfiguration{
-		Host: "192.168.89.160",
+		Host: "127.0.0.1",
 		Port: "6379",
 	}
 	client := NewClient(config)
