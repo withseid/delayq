@@ -96,7 +96,7 @@ func main() {
 	client.Enqueue(space1.Topic(), space1.SpaceID, data, delayq.ProcessAt(time.Now().AddDate(0, 0, 1)))
 ```
 
-可选 Option ProcessIn，例如 `delayq.ProcessIn(time.Second*10)` 表示 5s 后执行某个任务，
+可选 Option ProcessIn，例如 `delayq.ProcessIn(time.Second*10)` 表示 10s 后执行某个任务，
 ``` go
 	space2 := model.DeletedSpace{
 		SpaceID: "space2",
