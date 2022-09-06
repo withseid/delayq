@@ -49,7 +49,7 @@
 go get -u github.com/withseid/delayq
 ```
 
-新建一个 Client，通过 Client 将延迟任务入队
+初始化客户端
 ```go
 package main
 
@@ -68,6 +68,21 @@ func main() {
 	}
 	client := delayq.NewClient(config)
 
+
+
+
+}
+```
+
+延迟任务入队可选 Option 
+- ProcessAt: 在某个时间点执行任务
+- ProcessIn: 从当前时间算起，延迟多久后再执行任务
+- Retry：重试次数，此 Option 不配置时，默认无限重试，重试时间每次递增，从 2<sup>1</sup> -> 2<sup>12 </sup> s
+
+在可选 Option 中，若 ProcessAt 和 ProcessIn 都不选，则该任务立即执行。多 ProcessAt 和 ProcessIn 都选了，则只有最后一个会生效。 
+
+可选 Option ProcessAt, 例如 `delayq.ProcessAt(time.Now().AddDate(0, 0, 1))` 表示将在第二天的这个时间执行某个任务
+```go
 	space1 := model.DeletedSpace{
 		SpaceID: "space1",
 	}
@@ -79,23 +94,40 @@ func main() {
 	// 假设当前时间是 2022-08-16 18：12
 	// delayq.ProcessAt(time.Now().AddDate(0, 0, 1)) 表示将在 2022-08-17 18:12 执行该任务
 	client.Enqueue(space1.Topic(), space1.SpaceID, data, delayq.ProcessAt(time.Now().AddDate(0, 0, 1)))
+```
 
+可选 Option ProcessIn，例如 `delayq.ProcessIn(time.Second*10)` 表示 5s 后执行某个任务，
+``` go
 	space2 := model.DeletedSpace{
 		SpaceID: "space2",
 	}
-	data, err = json.Marshal(space2)
+	data, err := json.Marshal(space2)
 	if err != nil {
 		panic(err)
 	}
-	// 假设当前时间是 2022-08-16 18：12
-	// delayq.ProcessIn(time.Hour*24) 表示将在当前时间的基础上，延迟 24 小时后执行
-	client.Enqueue(space2.Topic(), space2.SpaceID, data, delayq.ProcessIn(time.Hour*24))
+	// delayq.ProcessIn(time.Second*24) 表示将在当前时间的基础上，延迟 10s 后执行
+	client.Enqueue(space2.Topic(), space2.SpaceID, data, delayq.ProcessIn(time.Second*10))
+```
 
+可选 Option Retry， 例如 `delayq.Retry(6)`, 表示重试 6 次，若重试 6 次都失败，则自动丢弃任务，默认为无限重试
+```go 
+	space3 := model.DeletedSpace{
+		SpaceID: "space3",
+	}
+	data, err := json.Marshal(space3)
+	if err != nil {
+		panic(err)
+	}
+	client.Enqueue(space3.Topic(), space3.SpaceID, data, delayq.Retry(6))
+```
+
+出队
+``` go
 	// 将 JobID 为 space2 的延迟任务出队
 	client.Dequeue(space2.Topic(), space2.SpaceID)
-}
-
 ```
+
+
 
 新建一个 Server，负责消费延迟队列中的消息并且执行延迟延迟 
 ``` go
