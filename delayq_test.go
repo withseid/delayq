@@ -1,92 +1,78 @@
 package delayq
 
-// func TestMigrate(t *testing.T) {
-// 	config := RedisConfiguration{
-// 		Host: "192.168.89.160",
-// 		Port: "6379",
-// 	}
-// 	cli, err := initRedis(config)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	readyQueueKey := fmt.Sprintf("%s_space_expired", RedisReadyQueue)
-// 	ti := time.Now().Unix()
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"testing"
+	"time"
+)
 
-// 	jobIDs, err := migrateExpiredJobScript.Run(context.TODO(), cli,
-// 		[]string{"delayQ_delay_queue_space_expired", readyQueueKey},
-// 		[]interface{}{ti}).StringSlice()
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	fmt.Println("jobIDs size: ", len(jobIDs))
-// 	fmt.Println("jobIDs: ", jobIDs)
-// }
+func TestDelayQueue(t *testing.T) {
 
-// func TestTime(t *testing.T) {
-// 	now := time.Now()
-// 	fmt.Println(now.Unix())
-// }
+	go producer()
 
-// func TestDelayQServer(t *testing.T) {
-// 	config := RedisConfiguration{
-// 		Host: "192.168.89.160",
-// 		Port: "6379",
-// 	}
+	config := RedisConfiguration{
+		Host: "192.168.89.160",
+		Port: "6379",
+	}
+	server := NewServer(config)
+	ds := DeletedSpace{}
 
-// 	// space := Space{}
+	server.HandlerFunc(ds.Topic(), &ds)
+	server.Run(context.TODO())
 
-// 	s := NewServer(config)
+}
 
-// 	s.Run(context.Background())
-// }
+func producer() {
 
-// var spaceExpiredTopic = "space_expired"
+	config := RedisConfiguration{
+		Host: "192.168.89.160",
+		Port: "6379",
+	}
+	client := NewClient(config)
 
-// type Space struct {
-// 	ID     string
-// 	UserID string
-// 	Phone  string
-// }
+	space1 := DeletedSpace{
+		SpaceID: "space1",
+	}
+	data, err := json.Marshal(space1)
+	if err != nil {
+		panic(err)
+	}
 
-// func (s *Space) Topic() string {
-// 	return spaceExpiredTopic
-// }
+	// 假设当前时间是 2022-08-16 18：12
+	// delayq.ProcessAt(time.Now().AddDate(0, 0, 1)) 表示将在 2022-08-17 18:12 执行该任务
+	client.Enqueue(space1.Topic(), space1.SpaceID, data, ProcessAt(time.Now().AddDate(0, 0, 1)))
 
-// func (s *Space) Execute(ctx context.Context, payload []byte) error {
+	space2 := DeletedSpace{
+		SpaceID: "space2",
+	}
+	data, err = json.Marshal(space2)
+	if err != nil {
+		panic(err)
+	}
+	// 假设当前时间是 2022-08-16 18：12
+	// delayq.ProcessIn(time.Hour*24) 表示将在当前时间的基础上，延迟 24 小时后执行
+	client.Enqueue(space2.Topic(), space2.SpaceID, data, ProcessIn(time.Hour*24))
+}
 
-// 	space := Space{}
-// 	err := json.Unmarshal(payload, &space)
-// 	if err != nil {
-// 		return err
-// 	}
+// const DeletedSpaceTopic = "deleted_space"
 
-// 	fmt.Println("[Execute] Space: ", space)
-// 	return nil
-// }
+type DeletedSpace struct {
+	SpaceID string
+}
 
-// func TestNewClient(t *testing.T) {
-// 	config := RedisConfiguration{
-// 		Host: "192.168.89.160",
-// 		Port: "6379",
-// 	}
-// 	client := NewClient(config)
+func (d *DeletedSpace) Topic() string {
+	return "deleted_space"
+}
 
-// 	rand.Seed(time.Now().UnixNano())
-// 	topic := "space_expired"
-// 	for i := 0; i < 5000; i++ {
-// 		space := Space{
-// 			ID:     fmt.Sprintf("space%d", i),
-// 			UserID: fmt.Sprintf("user%d", i),
-// 			Phone:  fmt.Sprintf("phone%d", i),
-// 		}
+func (d *DeletedSpace) Execute(ctx context.Context, job *Job) error {
+	ds := DeletedSpace{}
+	err := json.Unmarshal(job.Boday, &ds)
+	if err != nil {
+		return err
+	}
+	fmt.Println("DeletedSpace job info: ", job)
 
-// 		data, err := json.Marshal(space)
-// 		if err != nil {
-// 			panic(err)
-// 		}
-// 		t := rand.Int31n(300)
-// 		fmt.Println(t)
-// 		client.Enqueue(topic, fmt.Sprintf("job_%s", uuid.NewV4().String()), data, ProcessAt(time.Now().Add(time.Minute*time.Duration(t))))
-// 	}
-
-// }
+	return nil
+}
